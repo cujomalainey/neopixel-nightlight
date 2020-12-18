@@ -34,10 +34,13 @@
 // Wave Defines
 #define WAVE_STEP_MS 		20
 
+// Colour Defines
+#define INTERPOLATE_MS 	75
+
 #define NEXT_COLOUR(val) (colour_t(((uint8_t)val) + 1))
 #define NEXT_MODE(val) (light_mode_t(((uint8_t)val) + 1))
 
-#define LINERP(x, y, a, f) (((((uint16_t)x) * a) + (((uint16_t)y) * (f - a))) / f)
+#define LINERP(x, y, a, f) (((((uint16_t)x) * (f- a)) + (((uint16_t)y) * a)) / f)
 
 typedef enum {
 	PINK,
@@ -159,7 +162,7 @@ void set_ring(led_ring_t ring, uint32_t colour) {
 /**
  * Fetches colour given current state
  */
-struct rgb get_colour(colour_mode_t mode, uint32_t state = millis()) {
+struct rgb get_colour(colour_mode_t mode, uint32_t state = millis() / INTERPOLATE_MS) {
 	if (current_state.colour < CYCLING) {
 		return colour_lookup[current_state.colour];
 	} else if (current_state.colour == CYCLING) {
@@ -167,11 +170,11 @@ struct rgb get_colour(colour_mode_t mode, uint32_t state = millis()) {
 		  // interpolate x * a and y * (1 - a)
 		  struct rgb c1, c2, new_colour;
 		  uint32_t colour_index, colour_phase;
-		  colour_index = (state / 100) % COLOUR_COUNT;
+		  colour_index = (state / 100) % CYCLING;
 		  colour_phase = state % 100;
 
 		  if (colour_index == 0) {
-			  c1 = colour_lookup[COLOUR_COUNT - 1];
+			  c1 = colour_lookup[CYCLING - 1];
 			  c2 = colour_lookup[colour_index];
 		  } else {
 			  c1 = colour_lookup[colour_index - 1];
@@ -229,13 +232,13 @@ void run_breating() {
 	uint32_t breathing_level = millis() / BREATHING_STEP_MS;
 	uint32_t led_colour;
 	uint32_t colour_state;
-	// TODO scale to max brightness
 
 	colour_state = breathing_level / 200;
 	breathing_level %= 200;
 	if (breathing_level > 100) {
 		breathing_level = 200 - breathing_level;
 	}
+	breathing_level = map(breathing_level, 0, 100, 0, current_state.brightness);
 	led_colour = get_scaled_colour(get_colour(STEP, colour_state), breathing_level);
 
 	for(int i = 0; i < PIXEL_COUNT; i++) { // For each pixel...
@@ -264,7 +267,7 @@ void run_wave() {
 	uint32_t wave_brightness = wave_state % 100;
 	struct rgb led_colour = get_colour(INTERPOLATE);
 	uint32_t c1, c2;
-	// TODO scale to max brightness
+	wave_brightness = map(wave_brightness, 0, 100, 0, current_state.brightness);
 
 	switch (wave_phase) {
 	case 0:
@@ -275,20 +278,20 @@ void run_wave() {
 	case 1:
 		// decreasing inner to increasing middle
 		c1 = get_scaled_colour(led_colour, wave_brightness);
-		c2 = get_scaled_colour(led_colour, 100 - wave_brightness);
+		c2 = get_scaled_colour(led_colour, current_state.brightness - wave_brightness);
 		set_ring(MIDDLE, c1);
 		set_ring(INNER, c2);
 		break;
 	case 2:
 		// decreasing middle to increasing outer
 		c1 = get_scaled_colour(led_colour, wave_brightness);
-		c2 = get_scaled_colour(led_colour, 100 - wave_brightness);
+		c2 = get_scaled_colour(led_colour, current_state.brightness - wave_brightness);
 		set_ring(OUTER, c1);
 		set_ring(MIDDLE, c2);
 		break;
 	case 3:
 		// decreasing outer
-		c1 = get_scaled_colour(led_colour, 100 - wave_brightness);
+		c1 = get_scaled_colour(led_colour, current_state.brightness - wave_brightness);
 		set_ring(OUTER, c1);
 		break;
 	}
