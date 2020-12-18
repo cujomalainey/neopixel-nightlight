@@ -10,21 +10,34 @@
 #include <JC_Button.h>
 
 // HW defines
-#define PIXEL_COUNT  19 // TODO double check
+#define PIXEL_COUNT  19
 #define NEOPIXEL_PIN 7  // TODO ditto
 #define BUTTON_PIN   4  // TODO ditto
 
 // Interaction Defines
-#define LONG_PRESS_MS 1000
-#define DOUBLE_TAP_RELEASE_MS 1000
+#define LONG_PRESS_MS 			1000
+#define DOUBLE_TAP_RELEASE_MS 	1000
 
-// Defines
-#define BRIGHTNESS_AMP 50.0
-#define BRIGHTNESS_OFFSET 50.0
-#define BRIGHTNESS_FREQ 1.0/1000
+// LED defines
+#define MIDDLE_RING_ANGLE 60
+#define OUTER_RING_ANGLE  30
+
+// Math Defines
+#define BRIGHTNESS_AMP 		50.0
+#define BRIGHTNESS_OFFSET 	50.0
+#define BRIGHTNESS_FREQ 	1.0/1000
+#define BRIGHTNESS_MAX 		100
+
+// Breathing Defines
+#define BREATHING_STEP_MS 	20
+
+// Wave Defines
+#define WAVE_STEP_MS 		20
 
 #define NEXT_COLOUR(val) (colour_t(((uint8_t)val) + 1))
 #define NEXT_MODE(val) (light_mode_t(((uint8_t)val) + 1))
+
+#define LINERP(x, y, a, f) (((x * a) + (y * (f - a))) / f)
 
 typedef enum {
 	PINK,
@@ -51,6 +64,12 @@ typedef enum {
 	STEP,
 	INTERPOLATE,
 } colour_mode_t;
+
+typedef enum {
+	INNER,
+	MIDDLE,
+	OUTER,
+} led_ring_t;
 
 struct state {
 	uint8_t brightness; // (1-100%) treated as upper limit
@@ -113,23 +132,82 @@ void turn_off() {
 }
 
 /**
+ * Sets LED colour based on physical location
+ */
+void set_led(led_ring_t ring, uint16_t angle, uint32_t colour) {
+	angle %= 360;
+	if (ring == INNER) {
+		pixels.setPixelColor(0, colour);
+	} else if (ring == MIDDLE) {
+		pixels.setPixelColor(1 + (angle / MIDDLE_RING_ANGLE), colour);
+	} else {
+		// TODO handle rotation offset
+		pixels.setPixelColor(7 + (angle / OUTER_RING_ANGLE), colour);
+	}
+}
+
+void set_ring(led_ring_t ring, uint32_t colour) {
+	uint16_t step = ring == MIDDLE ? MIDDLE_RING_ANGLE : OUTER_RING_ANGLE;
+	if (ring == INNER) {
+		set_led(ring, 0, colour);
+	}
+	for (int i = 0; i < 360; i += step) {
+		set_led(ring, i, colour);
+	}
+}
+
+/**
  * Fetches colour given current state
  */
 struct rgb get_colour(colour_mode_t mode, uint32_t state = millis()) {
 	if (current_state.colour < CYCLING) {
 		return colour_lookup[current_state.colour];
+	} else if (current_state.colour == CYCLING) {
+		if (mode == INTERPOLATE) {
+		  // interpolate x * a and y * (1 - a)
+		  // TODO
+		  struct rgb new_colour {
+			  .r = 0,
+			  .g = 0,
+			  .b = 0,
+		  };
+		  return new_colour;
+		} else {
+		  // should be step
+		  state %= COLOUR_COUNT;
+		  return colour_lookup[state];
+		}
+	} else {
+		// Should not happen
+		reset_state();
+		return colour_lookup[PINK];
 	}
+}
+
+uint32_t get_scaled_colour(struct rgb colour, uint8_t brightness=current_state.brightness) {
+	uint16_t red = colour.r;
+	uint16_t green = colour.g;
+	uint16_t blue = colour.b;
+
+	red *= brightness;
+	green *= brightness;
+	blue *= brightness;
+
+	red /= BRIGHTNESS_MAX;
+	green /= BRIGHTNESS_MAX;
+	blue /= BRIGHTNESS_MAX;
+
+	return pixels.Color(red, green, blue);
 }
 
 /**
  * Solid static colour
  */
 void run_solid() {
-	struct rgb colour = get_colour(INTERPOLATE);
+	uint32_t led_colour = get_scaled_colour(get_colour(INTERPOLATE));
 	for(int i = 0; i < PIXEL_COUNT; i++) { // For each pixel...
-		pixels.setPixelColor(i, pixels.Color(colour.r, colour.g, colour.b));
-
-		pixels.show();   // Send the updated pixel colors to the hardware.
+		pixels.setPixelColor(i, led_colour);
+		pixels.show();
 	}
 }
 
@@ -137,15 +215,31 @@ void run_solid() {
  * sine wave brightness
  */
 void run_breating() {
-	static uint16_t breathing_level = 0;
-	// TODO
+	uint32_t breathing_level = millis() / BREATHING_STEP_MS;
+	uint32_t led_colour;
+	uint32_t colour_state;
+
+	colour_state = breathing_level / 200;
+	breathing_level %= 200;
+	if (breathing_level > 100) {
+		breathing_level = 200 - breathing_level;
+	}
+	led_colour = get_scaled_colour(get_colour(STEP, colour_state), breathing_level);
+
+	for(int i = 0; i < PIXEL_COUNT; i++) { // For each pixel...
+		pixels.setPixelColor(i, led_colour);
+		pixels.show();
+	}
 }
 
 /**
  * rotating pulse with tail
  */
 void run_chasing() {
-	static uint16_t chasing_angle = 0;
+	uint32_t chasing_angle = (millis() / BREATHING_STEP_MS) % 360;
+	if (chasing_angle > 300) {
+		// TODO handle loop around
+	}
 	// TODO
 }
 
@@ -153,8 +247,38 @@ void run_chasing() {
  * pulse from center out
  */
 void run_wave() {
-	static uint16_t pulse_age = 0;
-	// TODO
+	uint32_t wave_state = (millis() / WAVE_STEP_MS) % 400;
+	uint32_t wave_phase = wave_state / 100;
+	uint32_t wave_brightness = wave_state % 100;
+	struct rgb led_colour = get_colour(INTERPOLATE);
+	uint32_t c1, c2;
+	switch (wave_phase) {
+	case 0:
+		// increasing inner ring
+		c1 = get_scaled_colour(led_colour, wave_brightness);
+		set_led(INNER, 0, c1);
+		break;
+	case 1:
+		// decreasing inner to increasing middle
+		c1 = get_scaled_colour(led_colour, wave_brightness);
+		c2 = get_scaled_colour(led_colour, 100 - wave_brightness);
+		set_ring(MIDDLE, c1);
+		set_ring(INNER, c2);
+		break;
+	case 2:
+		// decreasing middle to increasing outer
+		c1 = get_scaled_colour(led_colour, wave_brightness);
+		c2 = get_scaled_colour(led_colour, 100 - wave_brightness);
+		set_ring(OUTER, c1);
+		set_ring(MIDDLE, c2);
+		break;
+	case 3:
+		// decreasing outer
+		c1 = get_scaled_colour(led_colour, 100 - wave_brightness);
+		set_ring(OUTER, c1);
+		break;
+	}
+	pixels.show();
 }
 
 void handle_button() {
@@ -225,10 +349,9 @@ void setup() {
 }
 
 void loop() {
-	// handle_button();
-	// if (current_state.on && !current_state.long_press) {
-	// 	handle_animations();
-	// }
-	run_solid();
+	handle_button();
+	if (current_state.on && !current_state.long_press) {
+		handle_animations();
+	}
 }
 
