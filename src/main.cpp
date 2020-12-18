@@ -9,12 +9,22 @@
 #include <Adafruit_NeoPixel.h>
 #include <JC_Button.h>
 
+// HW defines
 #define PIXEL_COUNT  19 // TODO double check
-#define NEOPIXEL_PIN 3  // TODO ditto
+#define NEOPIXEL_PIN 7  // TODO ditto
 #define BUTTON_PIN   4  // TODO ditto
 
+// Interaction Defines
 #define LONG_PRESS_MS 1000
 #define DOUBLE_TAP_RELEASE_MS 1000
+
+// Defines
+#define BRIGHTNESS_AMP 50.0
+#define BRIGHTNESS_OFFSET 50.0
+#define BRIGHTNESS_FREQ 1.0/1000
+
+#define NEXT_COLOUR(val) (colour_t(((uint8_t)val) + 1))
+#define NEXT_MODE(val) (light_mode_t(((uint8_t)val) + 1))
 
 typedef enum {
 	PINK,
@@ -30,12 +40,17 @@ typedef enum {
 } colour_t;
 
 typedef enum {
-	SOLID,
-	BREATHING,
-	CHASING,
-	WAVE,
-	MODE_COUNT,
+	SOLID = 0,
+	BREATHING = 1,
+	CHASING = 2,
+	WAVE = 3,
+	MODE_COUNT = 4,
 } light_mode_t;
+
+typedef enum {
+	STEP,
+	INTERPOLATE,
+} colour_mode_t;
 
 struct state {
 	uint8_t brightness; // (1-100%) treated as upper limit
@@ -47,20 +62,20 @@ struct state {
 };
 
 struct rgb {
-	uint8_t red;
-	uint8_t green;
-	uint8_t blue;
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
 };
 
 const struct rgb colour_lookup[COLOUR_COUNT] = {
-	{255, 192, 203}, // Pink
+	{255, 0,   100}, // Pink
 	{255, 0,   0  }, // Red
-	{255, 69,  0  }, // Orange
-	{255, 255, 0  }, // Yellow
+	{255, 59,  0  }, // Orange
+	{255, 175, 0  }, // Yellow
 	{0,   255, 0  }, // Green
 	{0,   255, 255}, // Cyan
 	{0,   0,   255}, // Blue
-	{128, 0,   128}, // Purple
+	{200, 0,   255}, // Purple
 	{}
 };
 
@@ -75,7 +90,7 @@ struct state current_state = {
 
 struct state previous_state = current_state;
 
-Adafruit_NeoPixel strip(PIXEL_COUNT, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel pixels(PIXEL_COUNT, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 Button btn(BUTTON_PIN);
 
 void reset_state() {
@@ -88,6 +103,58 @@ void reset_state() {
 		.last_release 	= 0,
 	};
 	previous_state = current_state;
+}
+
+/**
+ * turn off LEDs
+ */
+void turn_off() {
+	pixels.clear();
+}
+
+/**
+ * Fetches colour given current state
+ */
+struct rgb get_colour(colour_mode_t mode, uint32_t state = millis()) {
+	if (current_state.colour < CYCLING) {
+		return colour_lookup[current_state.colour];
+	}
+}
+
+/**
+ * Solid static colour
+ */
+void run_solid() {
+	struct rgb colour = get_colour(INTERPOLATE);
+	for(int i = 0; i < PIXEL_COUNT; i++) { // For each pixel...
+		pixels.setPixelColor(i, pixels.Color(colour.r, colour.g, colour.b));
+
+		pixels.show();   // Send the updated pixel colors to the hardware.
+	}
+}
+
+/**
+ * sine wave brightness
+ */
+void run_breating() {
+	static uint16_t breathing_level = 0;
+	// TODO
+}
+
+/**
+ * rotating pulse with tail
+ */
+void run_chasing() {
+	static uint16_t chasing_angle = 0;
+	// TODO
+}
+
+/**
+ * pulse from center out
+ */
+void run_wave() {
+	static uint16_t pulse_age = 0;
+	// TODO
 }
 
 void handle_button() {
@@ -120,52 +187,15 @@ void handle_button() {
 		// single press, next mode
 		current_state.last_release = btn.lastChange();
 		previous_state = current_state;
-		current_state.colour++;
+		current_state.colour = NEXT_COLOUR(current_state.colour);
 		if (current_state.colour >= COLOUR_COUNT) {
-			current_state.mode++;
+			current_state.mode = NEXT_MODE(current_state.mode);
 			current_state.colour = PINK;
 			if (current_state.mode >= MODE_COUNT) {
 				current_state.mode = SOLID;
 			}
 		}
 	}
-}
-
-/**
- * turn off LEDs
- */
-void turn_off() {
-}
-
-/**
- * Solid static colour
- */
-void run_solid() {
-	// TODO
-}
-
-/**
- * sine wave brightness
- */
-void run_breating() {
-	static breathing_level = 0;
-	// TODO
-}
-
-/**
- * rotating pulse with tail
- */
-void run_chasing() {
-	static chasing_angle = 0;
-	// TODO
-}
-
-/**
- * pulse from center out
- */
-void run_wave() {
-	static pulse_age = 0;
-	// TODO
 }
 
 void handle_animations() {
@@ -189,13 +219,16 @@ void handle_animations() {
 	}
 }
 
-void setup(){
+void setup() {
+	btn.begin();
+	pixels.begin();
 }
 
-void loop(){
-	handle_button();
-	if (current_state.on && !current_state.long_press) {
-		handle_animations();
-	}
+void loop() {
+	// handle_button();
+	// if (current_state.on && !current_state.long_press) {
+	// 	handle_animations();
+	// }
+	run_solid();
 }
 
