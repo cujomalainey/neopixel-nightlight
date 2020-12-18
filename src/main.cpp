@@ -37,7 +37,7 @@
 #define NEXT_COLOUR(val) (colour_t(((uint8_t)val) + 1))
 #define NEXT_MODE(val) (light_mode_t(((uint8_t)val) + 1))
 
-#define LINERP(x, y, a, f) (((x * a) + (y * (f - a))) / f)
+#define LINERP(x, y, a, f) (((((uint16_t)x) * a) + (((uint16_t)y) * (f - a))) / f)
 
 typedef enum {
 	PINK,
@@ -165,12 +165,23 @@ struct rgb get_colour(colour_mode_t mode, uint32_t state = millis()) {
 	} else if (current_state.colour == CYCLING) {
 		if (mode == INTERPOLATE) {
 		  // interpolate x * a and y * (1 - a)
-		  // TODO
-		  struct rgb new_colour {
-			  .r = 0,
-			  .g = 0,
-			  .b = 0,
-		  };
+		  struct rgb c1, c2, new_colour;
+		  uint32_t colour_index, colour_phase;
+		  colour_index = (state / 100) % COLOUR_COUNT;
+		  colour_phase = state % 100;
+
+		  if (colour_index == 0) {
+			  c1 = colour_lookup[COLOUR_COUNT - 1];
+			  c2 = colour_lookup[colour_index];
+		  } else {
+			  c1 = colour_lookup[colour_index - 1];
+			  c2 = colour_lookup[colour_index];
+		  }
+
+		  new_colour.r = LINERP(c1.r, c2.r, colour_phase, 100);
+		  new_colour.g = LINERP(c1.g, c2.g, colour_phase, 100);
+		  new_colour.b = LINERP(c1.b, c2.b, colour_phase, 100);
+
 		  return new_colour;
 		} else {
 		  // should be step
@@ -218,6 +229,7 @@ void run_breating() {
 	uint32_t breathing_level = millis() / BREATHING_STEP_MS;
 	uint32_t led_colour;
 	uint32_t colour_state;
+	// TODO scale to max brightness
 
 	colour_state = breathing_level / 200;
 	breathing_level %= 200;
@@ -252,6 +264,8 @@ void run_wave() {
 	uint32_t wave_brightness = wave_state % 100;
 	struct rgb led_colour = get_colour(INTERPOLATE);
 	uint32_t c1, c2;
+	// TODO scale to max brightness
+
 	switch (wave_phase) {
 	case 0:
 		// increasing inner ring
