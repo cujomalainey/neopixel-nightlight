@@ -148,10 +148,13 @@ void set_led(led_ring_t ring, uint16_t angle, uint32_t colour) {
 	if (ring == INNER) {
 		pixels.setPixelColor(0, colour);
 	} else if (ring == MIDDLE) {
-		pixels.setPixelColor(1 + (angle / MIDDLE_RING_ANGLE), colour);
+		pixels.setPixelColor(INNER_RING_LEDS + (angle / MIDDLE_RING_ANGLE), colour);
 	} else {
-		// TODO handle rotation offset
-		pixels.setPixelColor(7 + (angle / OUTER_RING_ANGLE), colour);
+		uint8_t index = JEWEL_LEDS + (angle / OUTER_RING_ANGLE) + OUTER_RING_OFFSET;
+		if (index >= PIXEL_COUNT) {
+			index -= OUTER_RING_LEDS;
+		}
+		pixels.setPixelColor(index, colour);
 	}
 }
 
@@ -194,7 +197,7 @@ struct rgb get_colour(colour_mode_t mode, uint32_t state = millis() / INTERPOLAT
 		  return new_colour;
 		} else {
 		  // should be step
-		  state %= COLOUR_COUNT;
+		  state %= CYCLING;
 		  return colour_lookup[state];
 		}
 	} else {
