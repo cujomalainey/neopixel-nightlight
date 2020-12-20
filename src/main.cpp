@@ -11,16 +11,21 @@
 
 // HW defines
 #define PIXEL_COUNT  19
-#define NEOPIXEL_PIN 7  // TODO ditto
-#define BUTTON_PIN   4  // TODO ditto
+#define NEOPIXEL_PIN 2  // TODO ditto
+#define BUTTON_PIN   9  // TODO ditto
 
 // Interaction Defines
 #define LONG_PRESS_MS 			1000
 #define DOUBLE_TAP_RELEASE_MS 	300
 
 // LED defines
-#define MIDDLE_RING_ANGLE 60
-#define OUTER_RING_ANGLE  30
+#define MIDDLE_RING_ANGLE 	60
+#define OUTER_RING_ANGLE  	30
+#define INNER_RING_LEDS 	1
+#define MIDDLE_RING_LEDS 	6
+#define OUTER_RING_LEDS 	12
+#define JEWEL_LEDS 			(INNER_RING_LEDS + MIDDLE_RING_LEDS)
+#define OUTER_RING_OFFSET 	4
 
 // Math Defines
 #define BRIGHTNESS_AMP 		50.0
@@ -35,7 +40,7 @@
 #define WAVE_STEP_MS 		20
 
 // Colour Defines
-#define INTERPOLATE_MS 	75
+#define INTERPOLATE_MS 		75
 
 #define NEXT_COLOUR(val) (colour_t(((uint8_t)val) + 1))
 #define NEXT_MODE(val) (light_mode_t(((uint8_t)val) + 1))
