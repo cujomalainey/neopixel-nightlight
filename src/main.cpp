@@ -282,7 +282,7 @@ void run_wave() {
 	uint32_t wave_brightness = wave_state % 100;
 	struct rgb led_colour = get_colour(INTERPOLATE);
 	uint32_t c1, c2;
-	wave_brightness = map(wave_brightness, 0, 100, 0, current_state.brightness);
+	wave_brightness = map(wave_brightness, 0, 99, 0, current_state.brightness);
 
 	switch (wave_phase) {
 	case 0:
