@@ -261,10 +261,16 @@ void run_breating() {
  */
 void run_chasing() {
 	uint32_t chasing_angle = (millis() / BREATHING_STEP_MS) % 360;
+	uint32_t led_colour = get_scaled_colour(get_colour(INTERPOLATE), 100);
 	if (chasing_angle > 300) {
 		// TODO handle loop around
 	}
-	// TODO
+	set_led(INNER, 0, led_colour);
+	set_led(MIDDLE, 0, led_colour);
+	set_led(OUTER, 0, led_colour);
+	set_led(OUTER, 30, pixels.Color(0,50,0));
+	set_led(OUTER, 330, pixels.Color(0,0,50));
+	pixels.show();
 }
 
 /**
