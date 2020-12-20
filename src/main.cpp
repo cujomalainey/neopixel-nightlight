@@ -137,6 +137,7 @@ void reset_state() {
  */
 void turn_off() {
 	pixels.clear();
+	pixels.show();
 }
 
 /**
@@ -318,6 +319,7 @@ void handle_button() {
 			// Returning after long press, dont update release timer
 			// to avoid double press trigger
 			current_state.long_press = false;
+			pixels.clear();
 			return;
 		}
 
@@ -341,6 +343,7 @@ void handle_button() {
 				current_state.mode = SOLID;
 			}
 		}
+		pixels.clear();
 	}
 }
 
