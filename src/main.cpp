@@ -16,7 +16,7 @@
 
 // Interaction Defines
 #define LONG_PRESS_MS 			1000
-#define DOUBLE_TAP_RELEASE_MS 	1000
+#define DOUBLE_TAP_RELEASE_MS 	300
 
 // LED defines
 #define MIDDLE_RING_ANGLE 60
