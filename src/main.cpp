@@ -32,9 +32,13 @@
 #define BRIGHTNESS_OFFSET 	50.0
 #define BRIGHTNESS_FREQ 	1.0/1000
 #define BRIGHTNESS_MAX 		100
+#define FULL_CIRCLE 		360
 
 // Breathing Defines
 #define BREATHING_STEP_MS 	20
+
+// Chasing Defines
+#define CHASING_STEP_MS 	40
 
 // Wave Defines
 #define WAVE_STEP_MS 		20
@@ -261,17 +265,36 @@ void run_breating() {
 /**
  * rotating pulse with tail
  */
-void run_chasing() {
-	uint32_t chasing_angle = (millis() / BREATHING_STEP_MS) % 360;
-	uint32_t led_colour = get_scaled_colour(get_colour(INTERPOLATE), 100);
-	if (chasing_angle > 300) {
-		// TODO handle loop around
+void set_ring_colour(uint16_t ring_angle, led_ring_t ring, struct rgb led_colour, uint32_t chasing_angle) {
+	uint32_t scaled_colour;
+	uint16_t upper_angle, lower_angle, interp_angle;
+	lower_angle = ((chasing_angle / ring_angle) * ring_angle) % FULL_CIRCLE;
+	upper_angle = (lower_angle + ring_angle) % FULL_CIRCLE;
+	interp_angle = chasing_angle % ring_angle;
+	if (interp_angle == 0) {
+		// fully clear last LED
+		if (lower_angle == 0) {
+			set_led(ring, FULL_CIRCLE - ring_angle, pixels.Color(0, 0, 0));
+		} else {
+			set_led(ring, lower_angle - ring_angle, pixels.Color(0, 0, 0));
+		}
 	}
-	set_led(INNER, 0, led_colour);
-	set_led(MIDDLE, 0, led_colour);
-	set_led(OUTER, 0, led_colour);
-	set_led(OUTER, 30, pixels.Color(0,50,0));
-	set_led(OUTER, 330, pixels.Color(0,0,50));
+	scaled_colour = get_scaled_colour(led_colour, LINERP(current_state.brightness, 0, interp_angle, ring_angle));
+	set_led(ring, lower_angle, scaled_colour);
+	scaled_colour = get_scaled_colour(led_colour, LINERP(0, current_state.brightness, interp_angle, ring_angle));
+	set_led(ring, upper_angle, scaled_colour);
+}
+
+void run_chasing() {
+	uint32_t chasing_angle = (millis() / CHASING_STEP_MS) % FULL_CIRCLE;
+	struct rgb led_colour = get_colour(INTERPOLATE);
+
+	// outer ring
+	set_ring_colour(OUTER_RING_ANGLE, OUTER, led_colour, chasing_angle);
+	// middle ring
+	set_ring_colour(MIDDLE_RING_ANGLE, MIDDLE, led_colour, chasing_angle);
+	// inner ring
+	set_led(INNER, 0, get_scaled_colour(led_colour, current_state.brightness));
 	pixels.show();
 }
 
