@@ -310,8 +310,9 @@ void run_wave() {
 void handle_button() {
 	bool rollover;
 	btn.read();
-	if (!current_state.on && btn.isPressed()) {
+	if (!current_state.on && btn.wasReleased()) {
 		current_state.on = true;
+		return;
 	}
 	if (btn.pressedFor(LONG_PRESS_MS)) {
 		current_state.brightness = BRIGHTNESS_AMP*sin(BRIGHTNESS_FREQ*millis()) + BRIGHTNESS_OFFSET;
