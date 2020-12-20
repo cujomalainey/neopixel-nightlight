@@ -56,6 +56,7 @@ typedef enum {
 	CYAN,
 	BLUE,
 	PURPLE,
+	WHITE,
 	CYCLING,
 	COLOUR_COUNT,
 } colour_t;
@@ -103,6 +104,7 @@ const struct rgb colour_lookup[COLOUR_COUNT] = {
 	{0,   255, 255}, // Cyan
 	{0,   0,   255}, // Blue
 	{200, 0,   255}, // Purple
+	{255, 255, 255},
 	{}
 };
 
